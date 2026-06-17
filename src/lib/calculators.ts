@@ -1187,6 +1187,8 @@ export function calculateCorrelatedSineOscillator(
 export function calculateVelocity(data: CandleData[], momLength = 7, smoothLength = 4, atrLength = 10) {
   const normHistogram: (number | null)[] = new Array(data.length).fill(null);
   const histColor: (number | null)[] = new Array(data.length).fill(null); 
+  const velocityBuyArrow: (number | null)[] = new Array(data.length).fill(null);
+  const velocitySellArrow: (number | null)[] = new Array(data.length).fill(null);
 
   const closePrices = data.map((d: CandleData) => d.close);
   const atrValues = calculateATR(data, atrLength);
@@ -1200,6 +1202,8 @@ export function calculateVelocity(data: CandleData[], momLength = 7, smoothLengt
 
   const smoothedMom = calculateEMA(rawMom, smoothLength);
   
+  let prevSide: 1 | -1 | null = null;
+
   for (let i = 0; i < data.length; i++) {
     const atrValue = atrValues[i];
     if (atrValue && atrValue > 0 && smoothedMom[i] !== null) {
@@ -1209,16 +1213,45 @@ export function calculateVelocity(data: CandleData[], momLength = 7, smoothLengt
     }
     
     // Color logic
+    let currentColor: 1 | 2 | -1 | -2 | null = null;
     if (i > 0 && normHistogram[i] !== null && normHistogram[i - 1] !== null) {
       if (normHistogram[i]! > 0) {
-        histColor[i] = normHistogram[i]! > normHistogram[i - 1]! ? 1 : 2; // 1 = Green, 2 = Teal
+        currentColor = normHistogram[i]! > normHistogram[i - 1]! ? 1 : 2; // 1 = Green, 2 = Teal
       } else {
-        histColor[i] = normHistogram[i]! < normHistogram[i - 1]! ? -1 : -2; // -1 = Red, -2 = Maroon
+        currentColor = normHistogram[i]! < normHistogram[i - 1]! ? -1 : -2; // -1 = Red, -2 = Maroon
       }
     } else if (normHistogram[i] !== null) {
-      histColor[i] = normHistogram[i]! > 0 ? 1 : -1;
+      currentColor = normHistogram[i]! > 0 ? 1 : -1;
+    }
+    histColor[i] = currentColor;
+
+    let currentSide: 1 | -1 | null = null;
+    if (normHistogram[i] !== null) {
+      if (normHistogram[i]! > 0) {
+        currentSide = 1;
+      } else if (normHistogram[i]! < 0) {
+        currentSide = -1;
+      } else {
+        currentSide = prevSide; // maintain previous side if exactly 0
+      }
+    }
+
+    if (currentSide !== null && prevSide !== null && currentSide !== prevSide) {
+      const gap = Math.max(data[i].high - data[i].low, data[i].close * 0.0005) * 0.2;
+      // Change to positive (must be > 0)
+      if (currentSide === 1) {
+        velocityBuyArrow[i] = data[i].low - gap;
+      }
+      // Change to negative (must be < 0)
+      else if (currentSide === -1) {
+        velocitySellArrow[i] = data[i].high + gap;
+      }
+    }
+    
+    if (currentSide !== null) {
+      prevSide = currentSide;
     }
   }
 
-  return { normHistogram, histColor };
+  return { normHistogram, histColor, velocityBuyArrow, velocitySellArrow };
 }
