@@ -30,7 +30,7 @@ self.onmessage = (e: MessageEvent) => {
     
     // Core indicators
     const gtaData = activeIndicators.GTA ? calculateGTATrend(data, settings.GTA_LONG, settings.GTA_MID, settings.GTA_SHORT) : null;
-    const scalpingData = activeIndicators.SCALPING ? calculateSimpleScalping(data, settings.SCALPING_LOOKBACK, settings.SCALPING_EMA, settings.SCALPING_LOOKBACK_HL) : null;
+    const scalpingData = activeIndicators.SCALPING || settings.visibility?.scalpingArrows ? calculateSimpleScalping(data, settings.SCALPING_LOOKBACK, settings.SCALPING_EMA, settings.SCALPING_LOOKBACK_HL) : null;
     const trendlinesBreakData = activeIndicators.TRENDLINES_BREAKS ? calculateTrendlinesWithBreaks(data, settings.TRENDLINES_LENGTH || 14, settings.TRENDLINES_MULT || 1.0) : null;
     
     const maData = calculateSMA(data.map((d: any) => d.close), settings.MA_PERIOD);
@@ -65,12 +65,15 @@ self.onmessage = (e: MessageEvent) => {
     const obData = activeIndicators.OB
       ? calculateOrderBlocks(data, settings.OB_PIVOT_LENGTH, settings.OB_MAX_BULL, settings.OB_MAX_BEAR, settings.OB_MITIGATION_METHOD as any)
       : null;
+    const velocityData = activeIndicators.VELOCITY || settings.visibility?.velocityArrows
+      ? calculateVelocity(data, settings.VELOCITY_MOM, settings.VELOCITY_SMOOTH, settings.VELOCITY_ATR)
+      : null;
 
     self.postMessage({
       id,
       type: 'BOTTOM_RESULT',
       payload: {
-        gtaData, scalpingData, trendlinesBreakData, maData, rsiData, bbData, psarData, stochRsiData, atrFibData, maEnvData, twoPoleData, msmtData, utbotData, nwenvData, waeData, csoData, obData
+        gtaData, scalpingData, trendlinesBreakData, maData, rsiData, bbData, psarData, stochRsiData, atrFibData, maEnvData, twoPoleData, msmtData, utbotData, nwenvData, waeData, csoData, obData, velocityData
       }
     });
   } else if (type === 'CALCULATE_OSCILLATOR') {
