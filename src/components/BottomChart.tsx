@@ -93,7 +93,7 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
     if (data.length === 0 || !calcData) return [];
     
     // Unpack from worker result
-    const { gtaData, scalpingData, trendlinesBreakData, maData, rsiData, bbData, psarData, stochRsiData, atrFibData, maEnvData, twoPoleData, msmtData, utbotData, nwenvData, waeData, csoData, obData } = calcData;
+    const { gtaData, scalpingData, trendlinesBreakData, maData, rsiData, bbData, psarData, stochRsiData, atrFibData, maEnvData, twoPoleData, msmtData, utbotData, nwenvData, waeData, csoData, obData, velocityData } = calcData;
 
     const startIndex = Math.max(0, data.length - zoomLevel - scrollOffset);
     const endIndex = Math.max(0, data.length - scrollOffset);
@@ -206,6 +206,8 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
       let ribbonColor = scalpingData?.[i]?.ribbonColor;
       let ribbonBuyArrow = scalpingData?.[i]?.ribbonBuyArrow ?? null;
       let ribbonSellArrow = scalpingData?.[i]?.ribbonSellArrow ?? null;
+      let velocityBuyArrow = velocityData?.velocityBuyArrow?.[i] ?? null;
+      let velocitySellArrow = velocityData?.velocitySellArrow?.[i] ?? null;
       
       let execSL = null;
       let execTP = null;
@@ -303,6 +305,8 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
         ribbonColor,
         ribbonBuyArrow,
         ribbonSellArrow,
+        velocityBuyArrow,
+        velocitySellArrow,
         tlUpper: trendlinesBreakData?.[i]?.upper ?? null,
         tlLower: trendlinesBreakData?.[i]?.lower ?? null,
         csoBuySignal,
@@ -339,6 +343,7 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
          waeBuyArrow: null, waeSellArrow: null,
          execSL: null, execTP: null, gtaColor: null, gtaBuyArrow: null, gtaSellArrow: null,
          ribbonColor: null, ribbonBuyArrow: null, ribbonSellArrow: null,
+         velocityBuyArrow: null, velocitySellArrow: null,
          tlUpper: null, tlLower: null,
          csoBuySignal: null, csoSellSignal: null
        } as any;
@@ -718,10 +723,17 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
               </>
           )}
 
-          {activeIndicators.SCALPING && (
+          {(activeIndicators.SCALPING || settings.visibility.scalpingArrows) && (
               <>
               <Scatter yAxisId="main" dataKey="ribbonBuyArrow" shape={(props: any) => props.payload.ribbonBuyArrow === null ? null : <text x={props.cx} y={props.cy} fill="#10b981" fontSize={16} fontWeight="bold" textAnchor="middle" alignmentBaseline="text-before-edge">▲</text>} isAnimationActive={false} />
               <Scatter yAxisId="main" dataKey="ribbonSellArrow" shape={(props: any) => props.payload.ribbonSellArrow === null ? null : <text x={props.cx} y={props.cy} fill="#ef4444" fontSize={16} fontWeight="bold" textAnchor="middle" alignmentBaseline="text-after-edge">▼</text>} isAnimationActive={false} />
+              </>
+          )}
+
+          {(activeIndicators.VELOCITY || settings.visibility.velocityArrows) && (
+              <>
+              <Scatter yAxisId="main" dataKey="velocityBuyArrow" shape={(props: any) => props.payload.velocityBuyArrow === null ? null : <text x={props.cx} y={props.cy} fill="#10b981" fontSize={24} fontWeight="bold" textAnchor="middle" alignmentBaseline="text-before-edge">⇑</text>} isAnimationActive={false} />
+              <Scatter yAxisId="main" dataKey="velocitySellArrow" shape={(props: any) => props.payload.velocitySellArrow === null ? null : <text x={props.cx} y={props.cy} fill="#ef4444" fontSize={24} fontWeight="bold" textAnchor="middle" alignmentBaseline="text-after-edge">⇓</text>} isAnimationActive={false} />
               </>
           )}
 
