@@ -209,7 +209,8 @@ export default function App() {
       msmtTrailingLine: true, msmtTargets: true,
       utbotTrailingStop: true, utbotSignals: true,
       nwenvBands: true, nwenvBase: true, nwenvSignals: true,
-      waeHistogram: true, waeLines: true, waeSignals: true
+      waeHistogram: true, waeLines: true, waeSignals: true,
+      velocityArrows: true, scalpingArrows: true
     }
   };
 
