@@ -482,7 +482,32 @@ export function calculateStandardSMI(data: CandleData[], qPeriod = 14, rPeriod =
   }
   
   const signal = calculateEMA(smi, signalPeriod);
-  return { smi, signal };
+  
+  const histogram: (number | null)[] = [];
+  const histColor: (1 | -1 | null)[] = [];
+  
+  let currentSide: 1 | -1 | null = null;
+  
+  for (let i = 0; i < data.length; i++) {
+    if (isNaN(smi[i]) || isNaN(signal[i])) {
+      histogram.push(null);
+      histColor.push(null);
+      continue;
+    }
+    
+    const histVal = smi[i] - signal[i];
+    histogram.push(histVal);
+    
+    if (histVal > 0) {
+      currentSide = 1;
+    } else if (histVal < 0) {
+      currentSide = -1;
+    }
+    
+    histColor.push(currentSide);
+  }
+
+  return { smi, signal, histogram, histColor };
 }
 
 export function calculateMAEnvelope(data: CandleData[], period = 20, percent = 5) {
