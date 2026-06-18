@@ -46,6 +46,8 @@ function OscillatorChartComponent({ type, data, settings, zoomLevel, scrollOffse
       if (type === 'STDSMI') {
         item.smi = indData.smi[i] !== undefined && !isNaN(indData.smi[i]) ? indData.smi[i] : null;
         item.signal = indData.signal[i] !== undefined && !isNaN(indData.signal[i]) ? indData.signal[i] : null;
+        item.histogram = indData.histogram?.[i] !== undefined && !isNaN(indData.histogram[i]) ? indData.histogram[i] : null;
+        item.histColor = indData.histColor?.[i] !== undefined && !isNaN(indData.histColor[i]) ? indData.histColor[i] : null;
       }
       if (type === 'TWOPOLE') {
         item.osc = indData.oscillator[i] !== undefined && !isNaN(indData.oscillator[i]) ? indData.oscillator[i] : null;
@@ -90,7 +92,7 @@ function OscillatorChartComponent({ type, data, settings, zoomLevel, scrollOffse
     SMI: { title: 'SMI Ergodic', domain: ['auto', 'auto'], lines: [{key: 'smi', name: 'SMI', color: settings.colors.smiSmi, vis: settings.visibility.smiSmi}, {key: 'signal', name: 'Signal', color: settings.colors.smiSignal, vis: settings.visibility.smiSignal}], hist: {key: 'histogram', up: settings.colors.smiHistogramUp, down: settings.colors.smiHistogramDown, vis: settings.visibility.smiHistogram} },
     STOCHRSI: { title: 'Double Stoch RSI', domain: [0, 100], refs: [80, 20], lines: [{key: 'stochK', name: '%K', color: settings.colors.stochK, vis: settings.visibility.stochK}, {key: 'stochD', name: '%D', color: settings.colors.stochD, vis: settings.visibility.stochD}] },
     ZMACD: { title: 'Zero Lag MACD', domain: ['auto', 'auto'], lines: [{key: 'macd', name: 'MACD', color: settings.colors.zmacdMacd, vis: settings.visibility.zmacdMacd}, {key: 'signal', name: 'Signal', color: settings.colors.zmacdSignal, vis: settings.visibility.zmacdSignal}], hist: {key: 'histogram', up: settings.colors.zmacdHistUp, down: settings.colors.zmacdHistDown, vis: settings.visibility.zmacdHist} },
-    STDSMI: { title: 'Standard SMI', domain: ['auto', 'auto'], refs: [40, -40], lines: [{key: 'smi', name: 'SMI', color: settings.colors.stdSmiSmi, vis: settings.visibility.stdSmiSmi}, {key: 'signal', name: 'Signal', color: settings.colors.stdSmiSignal, vis: settings.visibility.stdSmiSignal}] },
+    STDSMI: { title: 'Standard SMI', domain: ['auto', 'auto'], refs: [40, -40], lines: [{key: 'smi', name: 'SMI', color: settings.colors.stdSmiSmi, vis: settings.visibility.stdSmiSmi}, {key: 'signal', name: 'Signal', color: settings.colors.stdSmiSignal, vis: settings.visibility.stdSmiSignal}], stdSmiHist: true },
     TWOPOLE: { title: 'Two-Pole Oscillator', domain: [-1.0, 1.0], customRefs: [{y: 1, c: '#22c55e'}, {y: 0.5, c: '#eab308'}, {y: 0, c: '#ef4444'}, {y: -0.5, c: '#eab308'}, {y: -1, c: '#22c55e'}], lines: [{key: 'signal', name: 'Signal', color: settings.colors.twopoleSignal, vis: settings.visibility.twopoleSignal}], dynamicHist: true },
     WAE: { title: 'Waddah Attar Explosion', domain: ['auto', 'auto'], lines: [{key: 'waeExplosion', name: 'Explosion', color: settings.colors.waeExplosion, vis: settings.visibility.waeLines}, {key: 'waeDeadZone', name: 'DeadZone', color: settings.colors.waeDeadZone, vis: settings.visibility.waeLines}], waeHist: true },
     VELOCITY: { title: 'Velocity Confirmation Hist', domain: ['auto', 'auto'], customRefs: [{y: 0, c: '#444'}], velHist: true },
@@ -135,6 +137,17 @@ function OscillatorChartComponent({ type, data, settings, zoomLevel, scrollOffse
               {chartData.map((entry: any, index) => (
                 <Cell key={`cell-${index}`} fill={entry[config.hist.key] && entry[config.hist.key] > 0 ? config.hist.up : config.hist.down} fillOpacity={0.5} />
               ))}
+            </Bar>
+          )}
+
+          {config.stdSmiHist && settings.visibility.stdSmiHist && (
+            <Bar yAxisId="ind" dataKey="histogram" isAnimationActive={false} name="Histogram">
+              {chartData.map((entry: any, index) => {
+                let fill = 'transparent';
+                if (entry.histColor === 1) fill = settings.colors.stdSmiHistUp;
+                else if (entry.histColor === -1) fill = settings.colors.stdSmiHistDown;
+                return <Cell key={`cell-${index}`} fill={fill} fillOpacity={0.8} />;
+              })}
             </Bar>
           )}
 
