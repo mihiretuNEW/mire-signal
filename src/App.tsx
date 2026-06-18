@@ -188,7 +188,7 @@ export default function App() {
     colors: {
       ma: '#ec4899', rsi: '#a855f7', bbUpper: '#14b8a6', bbLower: '#14b8a6', psar: '#eab308',
       smiSmi: '#06b6d4', smiSignal: '#f59e0b', smiHistogramUp: '#10b981', smiHistogramDown: '#ef4444',
-      stdSmiSmi: '#06b6d4', stdSmiSignal: '#f59e0b',
+      stdSmiSmi: '#06b6d4', stdSmiSignal: '#f59e0b', stdSmiHistUp: '#10b981', stdSmiHistDown: '#ef4444',
       zmacdMacd: '#3b82f6', zmacdSignal: '#f59e0b', zmacdHistUp: '#10b981', zmacdHistDown: '#ef4444',
       maenvUpper: '#3b82f6', maenvLower: '#3b82f6',
       stochK: '#06b6d4', stochD: '#f59e0b',
@@ -201,7 +201,7 @@ export default function App() {
     visibility: {
       ma: true, rsi: true, bbUpper: true, bbLower: true, psar: true,
       smiSmi: true, smiSignal: true, smiHistogram: true,
-      stdSmiSmi: true, stdSmiSignal: true,
+      stdSmiSmi: true, stdSmiSignal: true, stdSmiHist: true,
       zmacdMacd: true, zmacdSignal: true, zmacdHist: true,
       maenvUpper: true, maenvLower: true,
       stochK: true, stochD: true,
