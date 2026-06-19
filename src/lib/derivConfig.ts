@@ -55,4 +55,8 @@ export const TIMEFRAMES = [
   { label: '2M', granularity: 120 },
   { label: '3M', granularity: 180 },
   { label: '5M', granularity: 300 },
+  { label: '15M', granularity: 900 },
+  { label: '30M', granularity: 1800 },
+  { label: '1H', granularity: 3600 },
+  { label: '4H', granularity: 14400 },
 ];
