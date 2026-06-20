@@ -235,13 +235,13 @@ export default function App() {
   useEffect(() => { localStorage.setItem('activeIndicators', JSON.stringify(activeIndicators)); }, [activeIndicators]);
   useEffect(() => { localStorage.setItem('indicatorSettings', JSON.stringify(indicatorSettings)); }, [indicatorSettings]);
 
-  const { candles, isConnected, fetchMoreHistory, errorMsg } = useDerivWS(selectedSymbol, selectedTimeframe);
+  const { candles, isConnected, fetchMoreHistory, errorMsg } = useDerivWS(selectedSymbol, selectedTimeframe, 1000, true);
   
   const workerResult = useIndicatorWorker(candles, activeIndicators, indicatorSettings);
 
   // MTF Mini Dashboard Logic
-  const { candles: m2Candles } = useDerivWS(selectedSymbol, 120, 2);
-  const { candles: m5Candles } = useDerivWS(selectedSymbol, 300, 2);
+  const { candles: m2Candles } = useDerivWS(selectedSymbol, 120, 2, false);
+  const { candles: m5Candles } = useDerivWS(selectedSymbol, 300, 2, false);
 
   const getTrend = (data: typeof candles) => {
     if (data.length < 2) return null;
