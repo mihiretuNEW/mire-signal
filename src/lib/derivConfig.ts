@@ -1,7 +1,13 @@
 export const DERIV_APP_ID = 1089; // Standard open app_id for Deriv
-export const DERIV_WS_URL = `wss://ws.binaryws.com/websockets/v3?app_id=${DERIV_APP_ID}`;
+export const DERIV_WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${DERIV_APP_ID}`;
 
 export const ASSET_PAIRS = [
+  // Step Indices
+  { symbol: 'stpRNG', name: 'Step Index 100', type: 'Step' },
+  { symbol: 'stpRNG2', name: 'Step Index 200', type: 'Step' },
+  { symbol: 'stpRNG3', name: 'Step Index 300', type: 'Step' },
+  { symbol: 'stpRNG4', name: 'Step Index 400', type: 'Step' },
+  { symbol: 'stpRNG5', name: 'Step Index 500', type: 'Step' },
   // Forex
   { symbol: 'frxAUDCAD', name: 'AUD/CAD', type: 'Forex' },
   { symbol: 'frxAUDCHF', name: 'AUD/CHF', type: 'Forex' },
