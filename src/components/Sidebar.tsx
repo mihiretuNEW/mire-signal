@@ -27,7 +27,7 @@ export function Sidebar({ isOpen, setIsOpen, selected, onSelect }: SidebarProps)
       </div>
       
       <div className="flex-1 overflow-y-auto p-2 scrollbar-hide">
-        {['Jump', 'Volatility', 'Forex'].map((type) => (
+        {['Jump', 'Volatility', 'Step', 'Forex'].map((type) => (
           <div key={type}>
             <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 px-2 mt-4 first:mt-2">
               {type}
