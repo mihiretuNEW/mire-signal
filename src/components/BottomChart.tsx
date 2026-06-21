@@ -695,11 +695,11 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
           )}
 
           {activeIndicators.OB && Array.from({length: settings.OB_MAX_BULL}).map((_, j) => (
-             <Area key={`ob-bull-${j}`} yAxisId="main" type="linear" dataKey={`obBull${j}`} stroke="#10b981" strokeWidth={2} strokeOpacity={1} fill="#10b981" fillOpacity={0.8} connectNulls={false} isAnimationActive={false} />
+             <Area key={`ob-bull-${j}`} yAxisId="main" type="step" dataKey={`obBull${j}`} stroke="#d4d4d4" strokeWidth={1} strokeOpacity={0.8} fill="transparent" connectNulls={false} isAnimationActive={false} />
           ))}
 
           {activeIndicators.OB && Array.from({length: settings.OB_MAX_BEAR}).map((_, j) => (
-             <Area key={`ob-bear-${j}`} yAxisId="main" type="linear" dataKey={`obBear${j}`} stroke="#ef4444" strokeWidth={2} strokeOpacity={1} fill="#ef4444" fillOpacity={0.8} connectNulls={false} isAnimationActive={false} />
+             <Area key={`ob-bear-${j}`} yAxisId="main" type="step" dataKey={`obBear${j}`} stroke="#d4d4d4" strokeWidth={1} strokeOpacity={0.8} fill="transparent" connectNulls={false} isAnimationActive={false} />
           ))}
 
           {activeIndicators.CSO && settings.CSO_SHOW_SIGNALS && (
