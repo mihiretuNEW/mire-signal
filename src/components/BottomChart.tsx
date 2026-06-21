@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, ComposedChart, Bar, Line, Area, XAxis, YAxis, Tooltip, Scatter, ReferenceLine, Customized } from 'recharts';
+import { ResponsiveContainer, ComposedChart, Bar, Line, Area, XAxis, YAxis, Tooltip, Scatter, ReferenceLine, ReferenceArea, Customized } from 'recharts';
 import { CandleData, calculateSMA, calculateRSI, calculateBollingerBands, calculateParabolicSAR, calculateStochRSI, calculateATRFibEnvelopes, calculateMAEnvelope, calculateTwoPole, calculateMSMT, calculateUTBot, calculateNWEnv, calculateWAE } from '../lib/calculators';
 import type { IndicatorSettings } from '../App';
 
@@ -89,6 +89,117 @@ const CandlestickShape = (props: any) => {
 export const BottomChart = React.memo(BottomChartComponent);
 
 function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scrollOffset, symbol, calcData }: BottomChartProps & { calcData: any }) {
+  const tradeSetups = useMemo(() => {
+    if (data.length === 0 || !calcData) return [];
+    if (!activeIndicators.GTA) return [];
+
+    const setups: any[] = [];
+    for (let i = 0; i < data.length; i++) {
+       const buyArr = calcData.gtaData?.[i]?.buyArrow;
+       const sellArr = calcData.gtaData?.[i]?.sellArrow;
+       
+       if (buyArr !== null && buyArr !== undefined) {
+           let confirmed = true;
+           // MA Confirmation
+           if (activeIndicators.MA && calcData.maData?.[i]?.ma !== undefined) {
+               if (data[i].close < calcData.maData[i].ma) confirmed = false;
+           }
+           // OB Confirmation
+           if (activeIndicators.OB && calcData.obData?.[i]) {
+               const ob = calcData.obData[i];
+               const hasBull = ob.bull_ob_top.map((t: any, idx: number) => ({top: t, bot: ob.bull_ob_bottom[idx]}))
+                                             .some((o: any) => o.top !== null && data[i].close >= o.bot * 0.9995);
+               if (!hasBull) confirmed = false;
+           }
+           // Trend Lines Confirmation
+           if (activeIndicators.TRENDLINES_BREAKS && calcData.trendlinesBreakData?.[i]) {
+               const tb = calcData.trendlinesBreakData[i];
+               if (tb.upper !== null && tb.lower !== null) {
+                   if (data[i].close < tb.lower) confirmed = false;
+               }
+           }
+
+           if (confirmed) {
+               const rangeStr = Math.max(0, i - 10);
+               const dRange = data.slice(rangeStr, i + 1);
+               const rawSl = Math.min(...dRange.map(x => x.low));
+               const entry = data[i].close;
+               let risk = entry - rawSl;
+               
+               // Cap risk up to 10% of asset value
+               if (risk > entry * 0.1) risk = entry * 0.1;
+               // Min risk floor to prevent tiny boxes
+               if (risk < entry * 0.001) risk = entry * 0.001; 
+               
+               const sl = entry - risk;
+               let tp = entry + risk * 2; // default 1:2 R:R
+               // Cap reward up to 30%
+               if (tp > entry * 1.3) tp = entry * 1.3;
+
+               if (risk > 0) {
+                  let exitIdx = i + 1;
+                  while(exitIdx < data.length) {
+                      if (data[exitIdx].low <= sl || data[exitIdx].high >= tp) break;
+                      exitIdx++;
+                  }
+                  if (exitIdx === data.length) exitIdx = data.length - 1;
+
+                  setups.push({ type: 'BUY', sl, tp, entry, epoch: data[i].epoch, time: data[i].time, entryTime: data[i].time, exitTime: data[exitIdx].time, entryEpoch: data[i].epoch, exitEpoch: data[exitIdx].epoch });
+               }
+           }
+       } else if (sellArr !== null && sellArr !== undefined) {
+           let confirmed = true;
+           // MA Confirmation
+           if (activeIndicators.MA && calcData.maData?.[i]?.ma !== undefined) {
+               if (data[i].close > calcData.maData[i].ma) confirmed = false;
+           }
+           // OB Confirmation
+           if (activeIndicators.OB && calcData.obData?.[i]) {
+               const ob = calcData.obData[i];
+               const hasBear = ob.bear_ob_bottom.map((b: any, idx: number) => ({top: ob.bear_ob_top[idx], bot: b}))
+                                                .some((o: any) => o.bot !== null && data[i].close <= o.top * 1.0005);
+               if (!hasBear) confirmed = false;
+           }
+           // Trend Lines Confirmation
+           if (activeIndicators.TRENDLINES_BREAKS && calcData.trendlinesBreakData?.[i]) {
+               const tb = calcData.trendlinesBreakData[i];
+               if (tb.upper !== null && tb.lower !== null) {
+                   if (data[i].close > tb.upper) confirmed = false;
+               }
+           }
+
+           if (confirmed) {
+               const rangeStr = Math.max(0, i - 10);
+               const dRange = data.slice(rangeStr, i + 1);
+               const rawSl = Math.max(...dRange.map(x => x.high));
+               const entry = data[i].close;
+               let risk = rawSl - entry;
+               
+               // Cap risk to 10%
+               if (risk > entry * 0.1) risk = entry * 0.1;
+               if (risk < entry * 0.001) risk = entry * 0.001;
+               
+               const sl = entry + risk;
+               let tp = entry - risk * 2; // default 1:2 R:R
+               // Cap reward to 30%
+               if (tp < entry * 0.7) tp = entry * 0.7;
+
+               if (risk > 0) {
+                  let exitIdx = i + 1;
+                  while(exitIdx < data.length) {
+                      if (data[exitIdx].high >= sl || data[exitIdx].low <= tp) break;
+                      exitIdx++;
+                  }
+                  if (exitIdx === data.length) exitIdx = data.length - 1;
+
+                  setups.push({ type: 'SELL', sl, tp, entry, epoch: data[i].epoch, time: data[i].time, entryTime: data[i].time, exitTime: data[exitIdx].time, entryEpoch: data[i].epoch, exitEpoch: data[exitIdx].epoch });
+               }
+           }
+       }
+    }
+    return setups;
+  }, [data, calcData, activeIndicators]);
+
   const chartData = useMemo(() => {
     if (data.length === 0 || !calcData) return [];
     
@@ -223,26 +334,6 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
         }
       }
 
-      if (activeIndicators.GTA && activeIndicators.SCALPING) {
-        if (gtaBuyArrow !== null && ribbonColor === 'green' && gtaColor === 0) {
-          const lowRange = data.slice(Math.max(0, i - 3), i + 1).map(x => x.low);
-          const sl = Math.min(...lowRange);
-          const entry = d.close;
-          const risk = entry - sl;
-          const tp = entry + risk * 1.5;
-          execSL = sl;
-          execTP = tp;
-        } else if (gtaSellArrow !== null && ribbonColor === 'red' && gtaColor === 1) {
-          const highRange = data.slice(Math.max(0, i - 3), i + 1).map(x => x.high);
-          const sl = Math.max(...highRange);
-          const entry = d.close;
-          const risk = sl - entry;
-          const tp = entry - risk * 1.5;
-          execSL = sl;
-          execTP = tp;
-        }
-      }
-
       const flatTargets: Record<string, number> = {};
       msmtTargets.forEach(t => {
         flatTargets[`msmtTarget${t.level}`] = t.price;
@@ -315,14 +406,24 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
 
       if (obData && obData[i]) {
         for (let j = 0; j < settings.OB_MAX_BULL; j++) {
-           result[`obBull${j}`] = obData[i].bull_ob_top[j] !== null
+           let val = obData[i].bull_ob_top[j] !== null
               ? [obData[i].bull_ob_bottom[j], obData[i].bull_ob_top[j]]
               : null;
+           // BREAK LINE IF CHANGED
+           if (i > 0 && obData[i-1] && obData[i-1].bull_ob_top[j] !== obData[i].bull_ob_top[j] && obData[i-1].bull_ob_top[j] !== null && obData[i].bull_ob_top[j] !== null) {
+              val = null; // insert a 1-candle gap
+           }
+           result[`obBull${j}`] = val;
         }
         for (let j = 0; j < settings.OB_MAX_BEAR; j++) {
-           result[`obBear${j}`] = obData[i].bear_ob_top[j] !== null
+           let val = obData[i].bear_ob_top[j] !== null
               ? [obData[i].bear_ob_bottom[j], obData[i].bear_ob_top[j]]
               : null;
+           // BREAK LINE IF CHANGED
+           if (i > 0 && obData[i-1] && obData[i-1].bear_ob_top[j] !== obData[i].bear_ob_top[j] && obData[i-1].bear_ob_top[j] !== null && obData[i].bear_ob_top[j] !== null) {
+              val = null; // insert a 1-candle gap
+           }
+           result[`obBear${j}`] = val;
         }
       }
 
@@ -426,7 +527,7 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
   let minLow = validCandles.length > 0 ? Math.min(...validCandles.map(d => d.low)) : 0;
   let maxHigh = validCandles.length > 0 ? Math.max(...validCandles.map(d => d.high)) : 1;
   const padding = (maxHigh - minLow) * 0.1;
-  
+
   if (activeIndicators.BB) {
     const validBbs = chartData.filter(d => (d as any).bbUpper !== null);
     if (validBbs.length > 0) {
@@ -470,6 +571,18 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
     });
   }
 
+  if (tradeSetups && tradeSetups.length > 0) {
+      tradeSetups.forEach((s) => {
+          const inView = chartData.some(d => d.epoch >= s.entryEpoch && d.epoch <= s.exitEpoch);
+          if (inView) {
+              if (s.sl) minLow = Math.min(minLow, s.sl);
+              if (s.sl) maxHigh = Math.max(maxHigh, s.sl);
+              if (s.tp) minLow = Math.min(minLow, s.tp);
+              if (s.tp) maxHigh = Math.max(maxHigh, s.tp);
+          }
+      });
+  }
+
   const yDomain = [minLow - padding, maxHigh + padding];
 
   return (
@@ -478,6 +591,11 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
         <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-900/50 px-2 py-0.5 rounded">
           Price + Indicators
         </span>
+        {activeIndicators.GTA && (
+          <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-900/50 px-2 py-0.5 rounded" style={{color: tradeSetups.length > 0 ? '#10b981' : '#ef4444'}}>
+             Trade Setups: {tradeSetups?.length || 0}
+          </span>
+        )}
       </div>
 
       <ResponsiveContainer width="100%" height="100%">
@@ -492,7 +610,7 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
                 <stop offset="95%" stopColor={settings.colors.msmtTrailingDown || "#ec4899"} stopOpacity={0.6}/>
             </linearGradient>
           </defs>
-          <XAxis dataKey="time" stroke="#333" tick={false} axisLine={false} />
+          <XAxis dataKey="epoch" stroke="#333" tick={false} axisLine={false} />
           
           <YAxis 
             yAxisId="main"
@@ -552,6 +670,28 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
               />
             );
           })()}
+
+           {tradeSetups.map((setup: any, i: number) => {
+              // Ensure we clamp the setup boundaries to the visible chart data
+              if (chartData.length === 0) return null;
+              if (setup.exitEpoch < chartData[0].epoch || setup.entryEpoch > chartData[chartData.length - 1].epoch) return null;
+
+              return (
+                 <React.Fragment key={`setup-${i}`}>
+                    {setup.type === 'BUY' ? (
+                      <>
+                         <ReferenceArea yAxisId="main" y1={setup.sl} y2={setup.entry} x1={setup.entryEpoch} x2={setup.exitEpoch} fill="#ef4444" fillOpacity={0.15} stroke="#ef4444" strokeWidth={1} strokeOpacity={0.8} />
+                         <ReferenceArea yAxisId="main" y1={setup.entry} y2={setup.tp} x1={setup.entryEpoch} x2={setup.exitEpoch} fill="#22c55e" fillOpacity={0.15} stroke="#22c55e" strokeWidth={1} strokeOpacity={0.8} />
+                      </>
+                    ) : (
+                      <>
+                         <ReferenceArea yAxisId="main" y1={setup.entry} y2={setup.sl} x1={setup.entryEpoch} x2={setup.exitEpoch} fill="#ef4444" fillOpacity={0.15} stroke="#ef4444" strokeWidth={1} strokeOpacity={0.8} />
+                         <ReferenceArea yAxisId="main" y1={setup.tp} y2={setup.entry} x1={setup.entryEpoch} x2={setup.exitEpoch} fill="#22c55e" fillOpacity={0.15} stroke="#22c55e" strokeWidth={1} strokeOpacity={0.8} />
+                      </>
+                    )}
+                 </React.Fragment>
+              );
+          })}
 
           <Bar 
               yAxisId="main"
@@ -713,13 +853,6 @@ function BottomChartComponent({ data, activeIndicators, settings, zoomLevel, scr
               <>
                 <Scatter yAxisId="main" dataKey="gtaBuyArrow" shape={(props: any) => props.payload.gtaBuyArrow === null ? null : <text x={props.cx} y={props.cy} fill="#3b82f6" fontSize={16} fontWeight="bold" textAnchor="middle" alignmentBaseline="text-before-edge">▲</text>} isAnimationActive={false} />
                 <Scatter yAxisId="main" dataKey="gtaSellArrow" shape={(props: any) => props.payload.gtaSellArrow === null ? null : <text x={props.cx} y={props.cy} fill="#a855f7" fontSize={16} fontWeight="bold" textAnchor="middle" alignmentBaseline="text-after-edge">▼</text>} isAnimationActive={false} />
-              </>
-          )}
-          
-          {activeIndicators.GTA && activeIndicators.SCALPING && (
-              <>
-                <Line yAxisId="main" type="stepAfter" dataKey="execSL" stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" dot={false} connectNulls={false} isAnimationActive={false} name="Stop Loss" />
-                <Line yAxisId="main" type="stepAfter" dataKey="execTP" stroke="#22c55e" strokeWidth={2} strokeDasharray="3 3" dot={false} connectNulls={false} isAnimationActive={false} name="Take Profit" />
               </>
           )}
 
