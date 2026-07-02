@@ -1,141 +1,135 @@
-import { useMemo, useState } from 'react';
-import { ResponsiveContainer, ComposedChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Bar, Cell, Area, ReferenceLine } from 'recharts';
-import { Maximize, Minimize, Plus, Minus } from 'lucide-react';
-import { CandleData, calculateSMI } from '../lib/calculators';
-import type { IndicatorSettings } from '../App';
+import React, { useEffect, useRef, useState } from 'react';
+import { createChart, IChartApi, ISeriesApi, LineStyle } from 'lightweight-charts';
+import { useChartSync } from '../contexts/ChartSyncContext';
 
 interface MainChartProps {
-  data: CandleData[];
-  activeIndicators: Record<string, boolean>;
-  settings: IndicatorSettings;
-  zoomLevel: number;
-  scrollOffset: number;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
+  data: any[];
+  indicators: any;
+  settings: {
+    upColor: string;
+    downColor: string;
+    showGrid: boolean;
+  };
+  activeTool: string | null;
 }
 
-export function MainChart({ data, settings, zoomLevel, scrollOffset, onZoomIn, onZoomOut }: MainChartProps) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
+export const MainChart: React.FC<MainChartProps> = ({ data, indicators, settings, activeTool }) => {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const drawingLinesRef = useRef<any[]>([]);
+  const [drawings, setDrawings] = useState<any[]>([]);
 
-  const chartData = useMemo(() => {
-    if (data.length === 0) return [];
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
 
-    // Calculate indicator on FULL data
-    const smiData = calculateSMI(data, settings.SMI_LONG, settings.SMI_SHORT, settings.SMI_SIGNAL);
-
-    const startIndex = Math.max(0, data.length - zoomLevel - scrollOffset);
-    const endIndex = Math.max(0, data.length - scrollOffset);
-    const slicedInput = data.slice(startIndex, endIndex);
-
-    let sliced = slicedInput.map((d, index) => {
-      const i = startIndex + index;
-      const timeStr = new Date(d.epoch * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const smiVal = smiData.smi[i] !== undefined && !isNaN(smiData.smi[i]) ? smiData.smi[i] : null;
-      const signalVal = smiData.signal[i] !== undefined && !isNaN(smiData.signal[i]) ? smiData.signal[i] : null;
-
-      return {
-        time: timeStr,
-        epoch: d.epoch,
-        smi: smiVal,
-        signal: signalVal,
-        histogram: (smiVal !== null && signalVal !== null) ? smiVal - signalVal : null,
-      };
+    // TradingView Premium Dark Theme Layout
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 500,
+      layout: {
+        background: { color: '#131722' }, // TradingView Dark Bg
+        textColor: '#d1d4dc',
+      },
+      grid: {
+        vertLines: { color: settings.showGrid ? '#1f222e' : 'transparent' },
+        horzLines: { color: settings.showGrid ? '#1f222e' : 'transparent' },
+      },
+      crosshair: {
+        mode: 0, // Normal crosshair mode
+        vertLine: { width: 1, color: '#758696', style: LineStyle.LargeDashed },
+        horzLine: { width: 1, color: '#758696', style: LineStyle.LargeDashed },
+      },
+      rightPriceScale: {
+        borderColor: '#2a2e39',
+        visible: true,
+        alignLabels: true, // Shows all price labels cleanly near current price
+      },
+      timeScale: {
+        borderColor: '#2a2e39',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
     });
 
-    const dummyCount = Math.floor(zoomLevel * 0.15); // 15% empty space
-    for (let i = 0; i < dummyCount; i++) {
-       sliced.push({ time: '', epoch: 0, smi: null, signal: null, histogram: null });
-    }
+    const candlestickSeries = chart.addCandlestickSeries({
+      upColor: settings.upColor,
+      downColor: settings.downColor,
+      borderUpColor: settings.upColor,
+      borderDownColor: settings.downColor,
+      wickUpColor: settings.upColor,
+      wickDownColor: settings.downColor,
+    });
 
-    return sliced;
-  }, [data, settings, zoomLevel, scrollOffset]);
+    candlestickSeriesRef.current = candlestickSeries;
+    chartRef.current = chart;
 
-  const toggleFullscreen = () => {
-    if (!isFullscreen) {
-      document.body.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
+    // Handle Resize
+    const handleResize = () => {
+      if (chartContainerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Drawing Logic (Click to Draw on Chart)
+    chart.subscribeClick((param) => {
+      if (!param.point || !param.time || !activeTool) return;
+
+      const price = candlestickSeries.coordinateToPrice(param.point.y);
+      if (!price) return;
+
+      if (activeTool === 'horizontal') {
+        const hLine = chart.addLineSeries({
+          color: '#2962ff',
+          lineWidth: 2,
+          lineStyle: LineStyle.Solid,
+        });
+        hLine.setData([{ time: data[0].time, value: price }, { time: data[data.length - 1].time, value: price }]);
+        drawingLinesRef.current.push(hLine);
+      } else if (activeTool === 'risk-reward') {
+        // Render TradingView Style Color Block for Risk/Reward
+        const stopDistance = price * 0.002; 
+        const targetDistance = price * 0.004;
+
+        const targetLine = chart.addLineSeries({ color: '#26a69a', lineWidth: 1 }); // Green Target
+        const stopLine = chart.addLineSeries({ color: '#ef5350', lineWidth: 1 }); // Red Stop
+
+        targetLine.setData([{ time: data[0].time, value: price + targetDistance }, { time: data[data.length - 1].time, value: price + targetDistance }]);
+        stopLine.setData([{ time: data[0].time, value: price - stopDistance }, { time: data[data.length - 1].time, value: price - stopDistance }]);
+        
+        drawingLinesRef.current.push(targetLine, stopLine);
+      }
+    });
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    };
+  }, [settings, activeTool]);
+
+  useEffect(() => {
+    if (candlestickSeriesRef.current && data.length > 0) {
+      candlestickSeriesRef.current.setData(data);
+      
+      // Indicators logic injection point (Strictly applying original math-driven arrows)
+      if (indicators && indicators.arrows) {
+        candlestickSeriesRef.current.setMarkers(indicators.arrows);
+      }
     }
-    setIsFullscreen(!isFullscreen);
-  };
+  }, [data, indicators]);
 
   return (
-    <div className={`w-full h-full flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-[#0a0a0a] p-4' : ''}`}>
-      <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-        <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800">
-          SMI Ergodic
-        </span>
-      </div>
-      
-      <div className="absolute top-4 right-[70px] z-10 flex items-center gap-2 bg-neutral-900/80 p-1.5 rounded-lg border border-neutral-700 backdrop-blur">
-        <button onClick={onZoomIn} className="p-1 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white">
-          <Plus className="w-4 h-4" />
-        </button>
-        <button onClick={onZoomOut} className="p-1 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white">
-          <Minus className="w-4 h-4" />
-        </button>
-        <div className="w-px h-4 bg-neutral-700 mx-1" />
-        <button onClick={toggleFullscreen} className="p-1 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white">
-          {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-        </button>
-      </div>
-
-      <div className="flex-1 w-full relative pt-8">
-        {chartData.length === 0 ? (
-          <div className="w-full h-full flex items-center justify-center text-neutral-600">Loading data...</div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }} syncId="trading-charts">
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-              <XAxis dataKey="time" stroke="#444" tick={{ fill: '#777', fontSize: 11 }} tickMargin={10} minTickGap={30} />
-              
-              <YAxis 
-                yAxisId="ind" 
-                orientation="right" 
-                width={60}
-                stroke="#444" 
-                tick={{ fill: '#777', fontSize: 11 }} 
-                domain={[-60, 60]}
-              />
-
-              <Tooltip 
-                cursor={{ stroke: '#555', strokeWidth: 1, strokeDasharray: '3 3' }}
-                position={{ x: 10, y: 35 }}
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const smi = payload.find(p => p.dataKey === 'smi')?.value;
-                    const signal = payload.find(p => p.dataKey === 'signal')?.value;
-                    const histogram = payload.find(p => p.dataKey === 'histogram')?.value;
-                    return (
-                      <div className="flex items-center gap-3 text-[10px] font-mono bg-[#0a0a0a]/80 py-0.5 px-2 rounded backdrop-blur">
-                        <span className="text-neutral-400 font-bold">SMI:</span>
-                        {smi !== undefined && <span className="text-blue-500">{Number(smi).toFixed(2)}</span>}
-                        <span className="text-neutral-400 font-bold ml-1">SIG:</span>
-                        {signal !== undefined && <span className="text-amber-500">{Number(signal).toFixed(2)}</span>}
-                        <span className="text-neutral-400 font-bold ml-1">HIST:</span>
-                        {histogram !== undefined && <span className={Number(histogram) > 0 ? 'text-emerald-500' : 'text-red-500'}>{Number(histogram).toFixed(2)}</span>}
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-
-              <Bar yAxisId="ind" dataKey="histogram" isAnimationActive={false} name="Histogram">
-                {chartData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={entry.histogram && entry.histogram > 0 ? '#10b981' : '#ef4444'} 
-                    fillOpacity={0.4} 
-                  />
-                ))}
-              </Bar>
-              <Line yAxisId="ind" type="monotone" dataKey="smi" stroke="#3b82f6" strokeWidth={2} dot={false} isAnimationActive={false} name="SMI" />
-              <Line yAxisId="ind" type="monotone" dataKey="signal" stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} name="Signal" />
-            </ComposedChart>
-          </ResponsiveContainer>
-        )}
+    <div className="relative w-full h-[500px] border border-[#2a2e39] bg-[#131722] rounded-md overflow-hidden">
+      <div ref={chartContainerRef} className="w-full h-full" />
+      {/* Zoom / Move Controls UI Overlay */}
+      <div className="absolute bottom-4 left-4 z-10 flex gap-1 bg-[#1c2030] p-1 rounded border border-[#2a2e39]">
+        <button onClick={() => chartRef.current?.timeScale().zoomOut(1)} className="px-2 py-1 text-white hover:bg-[#2a2e39] rounded text-xs">-</button>
+        <button onClick={() => chartRef.current?.timeScale().zoomIn(1)} className="px-2 py-1 text-white hover:bg-[#2a2e39] rounded text-xs">+</button>
+        <button onClick={() => chartRef.current?.timeScale().resetTimeScale()} className="px-2 py-1 text-white hover:bg-[#2a2e39] rounded text-xs">Reset</button>
       </div>
     </div>
   );
-}
+};
